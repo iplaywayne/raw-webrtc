@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Raw WebRTC</title>
+</head>
+
+<body>
+  <video id='local' autoplay width=400></video>
+  <video id='remote' autoplay width=400></video>
+
+  <script>
+    const local = new RTCPeerConnection()
+    const remote = new RTCPeerConnection()
+
+    local.onicecandidate = e => {
+      if (e.candidate) {
+        console.log('local ice', e.candidate)
+        remote.addIceCandidate(e.candidate)
+      }
+    }
+    remote.onicecandidate = e => {
+      if (e.candidate) {
+        console.log('remote ice', e.candidate)
+        local.addIceCandidate(e.candidate)
+      }
+    }
+
+    navigator.mediaDevices.getUserMedia({
+        video: true
+      })
+      .then(stream => {
+        document.getElementById('local').srcObject = stream
+        local.addStream(stream)
+        return local.createOffer()
+      })
+      .then(offer => local.setLocalDescription(offer))
+      .then(() => remote.setRemoteDescription(local.localDescription))
+      .then(() => remote.createAnswer())
+      .then(answer => remote.setLocalDescription(answer))
+      .then(() => local.setRemoteDescription(remote.localDescription))
+
+    remote.onaddstream = e => {
+      console.log(e.stream)
+      document.getElementById('remote').srcObject = e.stream
+    }
+  </script>
+</body>
+
+</html>
