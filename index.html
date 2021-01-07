@@ -14,14 +14,6 @@
     const socket = io('http://localhost:8000', {
       transports: ['websockets', 'polling']
     });
-    socket.on('connect', () => {
-      socket.emit('join', socket.id)
-    })
-    socket.on('welcome', msg => {
-      console.log(msg)
-    })
-
-    // RTC Connections on familiar host
     const local = new RTCPeerConnection()
     const remote = new RTCPeerConnection()
 
@@ -37,6 +29,39 @@
         local.addIceCandidate(e.candidate)
       }
     }
+    remote.onaddstream = e => {
+      document.getElementById('remote').srcObject = e.stream
+    }
+
+    socket.on('connect', () => {
+      socket.emit('join', socket.id)
+    })
+    socket.on('welcome', msg => {
+      console.log(msg)
+    })
+    socket.on('broadcast', () => {
+      socket.emit('watcher', socket.id)
+    })
+    socket.on('watcher', id => {
+      console.log('we watching!', window.stream)
+      local.addStream(window.stream)
+      socket.emit('offer', socket.id)
+    })
+
+    socket.on('offer', () => {
+      local.createOffer()
+        .then(offer => local.setLocalDescription(offer))
+        .then(() => remote.setRemoteDescription(local.localDescription))
+        .then(() => {
+          socket.emit('answer', local.localDescription)
+        })
+    })
+    socket.on('answer', desc => {
+      remote.createAnswer()
+        .then(answer => remote.setLocalDescription(answer))
+        .then(() => local.setRemoteDescription(remote.localDescription))
+    })
+
     // After a RTC connection is created the first client has
     // to send his RTC offer to the second client, and set
     // the RTC local description with his created offer.
@@ -44,20 +69,10 @@
         video: true
       })
       .then(stream => {
-        document.getElementById('local').srcObject = stream
-        local.addStream(stream)
-         local.createOffer()
+        // document.getElementById('local').srcObject = stream
+        window.stream = stream
+        socket.emit('broadcast')
       })
-      // .then(offer => local.setLocalDescription(offer))
-      // .then(() => remote.setRemoteDescription(local.localDescription))
-      // .then(() => remote.createAnswer())
-      // .then(answer => remote.setLocalDescription(answer))
-      // .then(() => local.setRemoteDescription(remote.localDescription))
-
-    remote.onaddstream = e => {
-      console.log(e.stream)
-      document.getElementById('remote').srcObject = e.stream
-    }
   </script>
 </body>
 

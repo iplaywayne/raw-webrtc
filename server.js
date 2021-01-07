@@ -21,10 +21,22 @@ io.on('connection', socket => {
     socket.emit('welcome', `welcome ${id}, currently ${peerCount} peer${peerCount > 1 ? 's' : ''}`)
   })
 
-  socket.on('offer', (id, desc) => {
-    console.log(id, desc)
+  socket.on('broadcast', () => {
+    console.log('broadcast')
+    socket.emit('broadcast')
+  })
+  socket.on('watcher', id => {
+    console.log('watcher')
+    socket.emit('watcher', id)
   })
 
+  socket.on('offer', (id, desc) => {
+    console.log('offer' + id)
+    socket.emit('offer', id, desc)
+  })
+  socket.on('answer', desc => {
+    socket.emit('answer', desc)
+  })
   socket.on('disconnect', () => {
     console.log(socket.id + ' disconnected')
     delete peers[socket.id]
