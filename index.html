@@ -7,31 +7,17 @@
 </head>
 
 <body>
-  <video id='local' autoplay width=400></video>
-  <video id='remote' autoplay width=400></video>
+  <div align='center'>
+    <video id='local' autoplay width=300></video>
+    <video id='remote' autoplay width=300></video>
+  </div>
 
   <script>
+    let caller, pc, remote;
     const socket = io('http://localhost:8000', {
       transports: ['websockets', 'polling']
     });
-    const local = new RTCPeerConnection()
-    const remote = new RTCPeerConnection()
-
-    local.onicecandidate = e => {
-      if (e.candidate) {
-        console.log('local ice', e.candidate)
-        remote.addIceCandidate(e.candidate)
-      }
-    }
-    remote.onicecandidate = e => {
-      if (e.candidate) {
-        console.log('remote ice', e.candidate)
-        local.addIceCandidate(e.candidate)
-      }
-    }
-    remote.onaddstream = e => {
-      document.getElementById('remote').srcObject = e.stream
-    }
+    pc = new RTCPeerConnection()
 
     socket.on('connect', () => {
       socket.emit('join', socket.id)
@@ -39,29 +25,35 @@
     socket.on('welcome', msg => {
       console.log(msg)
     })
-    socket.on('broadcast', () => {
-      socket.emit('watcher', socket.id)
-    })
-    socket.on('watcher', id => {
-      console.log('we watching!', window.stream)
-      local.addStream(window.stream)
-      socket.emit('offer', socket.id)
-    })
 
-    socket.on('offer', () => {
-      local.createOffer()
-        .then(offer => local.setLocalDescription(offer))
-        .then(() => remote.setRemoteDescription(local.localDescription))
-        .then(() => {
-          socket.emit('answer', local.localDescription)
-        })
-    })
-    socket.on('answer', desc => {
+    socket.on('video-offer', desc => {
+      console.log('[remote] received video-offer!')
+      remote = new RTCPeerConnection()
+      remote.setRemoteDescription(desc)
       remote.createAnswer()
         .then(answer => remote.setLocalDescription(answer))
-        .then(() => local.setRemoteDescription(remote.localDescription))
+        .then(() => socket.emit('video-answer', remote.localDescription))
+
+      remote.onaddstream = e => {
+        console.log('[remote] addStream call', e.stream)
+        document.getElementById('remote').srcObject = e.stream
+      }
+      remote.onicecandidate = e => {
+        if (e.candidate) {
+          socket.emit('candidate', e.candidate)
+        }
+      }
     })
 
+    socket.on('video-answer', desc => {
+      console.log('video-answer', desc)
+      pc.setRemoteDescription(desc)
+      // socket.emit('candidate', desc)
+    })
+    socket.on('candidate', desc => {
+      console.log('[remote] candidate', desc)
+      pc.addIceCandidate(desc)
+    })
     // After a RTC connection is created the first client has
     // to send his RTC offer to the second client, and set
     // the RTC local description with his created offer.
@@ -69,10 +61,30 @@
         video: true
       })
       .then(stream => {
-        // document.getElementById('local').srcObject = stream
+        document.getElementById('local').srcObject = stream
         window.stream = stream
-        socket.emit('broadcast')
+        console.log('addStream call', stream)
+        pc.addStream(stream)
+        // Called on addStream success
+        pc.onnegotiationneeded = e => {
+          console.log('addStream negotiation, sending video offer')
+          pc.createOffer()
+            .then(offer => pc.setLocalDescription(offer))
+            .then(() => socket.emit('video-offer', pc.localDescription))
+        }
+        // console.log(getParameterByName('name'))
+        // if (getParameterByName('name') == 'wayne') socket.emit('broadcast')
+        // if (getParameterByName('name') != 'wayne') socket.emit('offer')
       })
+
+    function getParameterByName(name, url = window.location.href) {
+      name = name.replace(/[\[\]]/g, '\\$&');
+      var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+        results = regex.exec(url);
+      if (!results) return null;
+      if (!results[2]) return '';
+      return decodeURIComponent(results[2].replace(/\+/g, ' '));
+    }
   </script>
 </body>
 

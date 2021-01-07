@@ -30,6 +30,20 @@ io.on('connection', socket => {
     socket.emit('watcher', id)
   })
 
+  socket.on('video-offer', (desc) => {
+    console.log('video-offer')
+    socket.emit('video-offer', desc)
+  })
+  socket.on('video-answer', (desc) => {
+    console.log('video-answer')
+    socket.emit('video-answer', desc)
+  })
+  socket.on('candidate', desc => {
+    socket.emit('candidate', desc)
+  })
+  socket.on('new-candidate', desc => {
+    socket.emit('new-candidate', desc)
+  })
   socket.on('offer', (id, desc) => {
     console.log('offer' + id)
     socket.emit('offer', id, desc)
