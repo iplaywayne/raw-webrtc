@@ -11,16 +11,11 @@
   <video id='remote' autoplay width=400></video>
 
   <script>
-    const socket = io('http://localhost:8000', {
-      transports: ['websockets', 'polling']
-    });
+    const socket = io();
     socket.on('connect', () => {
       socket.emit('join', socket.id)
     })
-    socket.on('welcome', msg => {
-      console.log(msg)
-    })
-
+    
     // RTC Connections on familiar host
     const local = new RTCPeerConnection()
     const remote = new RTCPeerConnection()
@@ -46,13 +41,13 @@
       .then(stream => {
         document.getElementById('local').srcObject = stream
         local.addStream(stream)
-         local.createOffer()
+        return local.createOffer()
       })
-      // .then(offer => local.setLocalDescription(offer))
-      // .then(() => remote.setRemoteDescription(local.localDescription))
-      // .then(() => remote.createAnswer())
-      // .then(answer => remote.setLocalDescription(answer))
-      // .then(() => local.setRemoteDescription(remote.localDescription))
+      .then(offer => local.setLocalDescription(offer))
+      .then(() => remote.setRemoteDescription(local.localDescription))
+      .then(() => remote.createAnswer())
+      .then(answer => remote.setLocalDescription(answer))
+      .then(() => local.setRemoteDescription(remote.localDescription))
 
     remote.onaddstream = e => {
       console.log(e.stream)
